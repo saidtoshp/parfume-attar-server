@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Parfume Attar – Admin</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Playfair+Display:wght@600&family=Pacifico&family=Oswald:wght@500&family=Caveat:wght@600&display=swap" rel="stylesheet"><script src="label.js"></script>
+<style>body{font:15px system-ui,sans-serif;margin:16px;max-width:960px}button,select{font:inherit;padding:8px 14px;border:1px solid #999;border-radius:8px;background:#fff;cursor:pointer;margin:6px 6px 0 0}button.on{background:#7000ff;color:#fff;border-color:#7000ff}.o{border:1px solid #ccc;border-radius:10px;padding:12px;margin:10px 0}.o div,.o a{display:block;margin-top:4px}pre{white-space:pre-wrap;margin:6px 0 0;font:inherit}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left}h3{margin:22px 0 0}.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}.g label{display:block;font-size:13px}</style></head>
+<body><h1>Parfume Attar – Admin</h1><div id="tabs"></div><div id="l">Yuklanmoqda...</div>
+<script>
+const k=prompt("Admin kaliti:")||"";
+const g=p=>fetch(p+(p.includes("?")?"&":"?")+"key="+encodeURIComponent(k)).then(r=>r.json());
+const post=(p,b)=>fetch(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({key:k},b))}).then(r=>r.json());
+const L=document.getElementById("l");
+function el(t,x,c){const e=document.createElement(t);if(x!=null)e.textContent=x;if(c)e.className=c;return e}
+function dt(s){return new Date(s).toLocaleString("ru-RU")}
+function inp(type,val,w){const i=document.createElement("input");i.type=type;i.value=val==null?"":val;i.style.cssText="padding:7px;width:"+(w||"100%");return i}
+function shrink(file){return new Promise(res=>{const im=new Image();im.onload=()=>{const s=Math.min(1,900/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.85))};im.src=URL.createObjectURL(file)})}
+function pick(cb){const f=document.createElement("input");f.type="file";f.accept="image/*";f.onchange=async()=>{if(f.files[0])cb(await shrink(f.files[0]))};f.click()}
+function thumb(src){const i=document.createElement("img");i.style.cssText="width:64px;height:64px;object-fit:cover;border:1px solid #ccc;border-radius:8px;vertical-align:middle;margin-right:8px;background:#fff";if(src)i.src=src;return i}
+function lbl(it){const w=document.createElement("div");w.style.marginTop="8px";
+const cv=document.createElement("canvas");cv.style.cssText="width:200px;height:120px;border:1px solid #bbb;background:#fff;display:block";w.append(cv);
+const dr=()=>Label.render(cv,it.dz,400);dr();Label.ready().then(dr);
+[["B21S (203 dpi)",203],["300 dpi",300]].forEach(x=>{const b=el("button","Nakleyka PNG: "+x[0]);b.onclick=()=>{const l=document.createElement("a");l.href=Label.png(it.dz,x[1]);l.download="nakleyka-"+it.name.replace(/\W+/g,"_")+"-"+x[1]+"dpi.png";l.click()};w.append(b)});return w}
+const upd=b=>post("/api/admin/order",b);
+async function orders(){const a=await g("/api/admin/orders");L.textContent="";if(a.error){L.textContent=a.error;return}
+if(!a.length)L.textContent="Hozircha buyurtma yo‘q.";
+a.forEach(o=>{const d=el("div",null,"o");d.append(el("b","#"+o.id+" "+o.name+" +"+o.phone+" ("+dt(o.date)+")"));
+d.append(el("pre",o.items.map((i,n)=>(n+1)+". "+(i.gift?"SOVG‘A (tekin): ":"")+(i.brand?i.brand+" — ":"")+i.name+" × "+i.qty+(i.bottle?" | idish: "+i.bottle:"")+(i.oil?" | "+i.oil:"")+(i.label?" | nakleyka: "+i.label+(i.design?" ("+i.design+")":""):"")).join("\n")+(o.promo?"\nPromo kod: "+o.promo.code+" (−"+o.promo.percent+"%: −"+o.promo.discount+" so‘m)":"")+(o.fee?"\nYetkazib berish: "+o.fee+" so‘m":"")+(o.total?"\nJami: "+o.total+" so‘m":"")));
+o.items.forEach(it=>{if(it.dz)d.append(lbl(it))});
+d.append(el("div","Yetkazish: "+(o.delivery?o.delivery.name:"—")));
+d.append(el("div","Manzil: "+(o.address||"—")+(o.note?" | Izoh: "+o.note:"")));
+if(o.lat!=null){const l=el("a","Xaritada ochish");l.href="https://www.google.com/maps?q="+o.lat+","+o.lng;l.target="_blank";l.rel="noopener";d.append(l)}
+d.append(el("div","To‘lov: "+(o.pay?o.pay.name+(o.pay.paid?" (to‘langan)":" (to‘lanmagan)"):"—")));
+const sel=el("select");["yangi","yig‘ilmoqda","yo‘lda","yetkazildi","bekor qilindi"].forEach(s=>{const op=el("option",s);op.value=s;if(s===o.status)op.selected=true;sel.append(op)});
+sel.onchange=()=>upd({id:o.id,status:sel.value});
+const pb=el("button",o.pay&&o.pay.paid?"To‘lanmadi deb belgilash":"To‘landi deb belgilash");pb.onclick=async()=>{await upd({id:o.id,paid:!(o.pay&&o.pay.paid)});orders()};
+d.append(sel,pb);L.append(d)})}
+async function users(){const a=await g("/api/admin/users");L.textContent="";if(a.error){L.textContent=a.error;return}
+L.append(el("p","Jami mijozlar: "+a.length));
+const t=el("table"),h=el("tr");["Ism","Telefon","Ro‘yxatdan o‘tgan","Buyurtmalar"].forEach(x=>h.append(el("th",x)));t.append(h);
+a.forEach(u=>{const r=el("tr");[u.name,"+"+u.phone,dt(u.created),u.orders].forEach(x=>r.append(el("td",x)));t.append(r)});L.append(t)}
+async function prods(){const P=await fetch("/api/products").then(r=>r.json()),O=await fetch("/api/options").then(r=>r.json());L.textContent="";
+L.append(el("p","Har bir atir uchun HAR BIR HAJMNING narxini alohida yozing. Narx yozilmasa, saytda «narx belgilanmagan» chiqadi (o‘zboshimcha narx qo‘yilmaydi). Hajmni o‘chirib qo‘ysangiz, mijoz uni tanlay olmaydi."));
+const nw=el("div",null,"o");nw.append(el("b","Yangi atir qo‘shish"));const nb=inp("text","","200px"),nn=inp("text","","240px");nb.placeholder="Brend";nn.placeholder="Atir nomi";const ns=el("button","Qo‘shish");ns.onclick=async()=>{const r=await post("/api/admin/product-new",{brand:nb.value,name:nn.value});if(r.error)alert(r.error);else{alert("Qo‘shildi. Sahifani yangilang.");prods()}};nw.append(nb,nn,ns);L.append(nw);
+const q=inp("search","");q.placeholder="Atirni qidirish";q.style.margin="6px 0";L.append(q);const box=el("div");L.append(box);
+const draw=()=>{box.textContent="";P.filter(x=>((x.brand||"")+" "+x.name).toLowerCase().includes(q.value.toLowerCase())).forEach(x=>{
+const d=el("div",null,"o"),hd=el("div");const th=thumb(x.img);hd.append(th,el("b",(x.brand?x.brand+" — ":"")+x.name));
+const ub=el("button","Rasm yuklash");ub.onclick=()=>pick(async u=>{const r=await post("/api/admin/upload",{kind:"product",id:x.id,data:u});if(r.img){x.img=r.img;th.src=r.img}else alert(r.error)});hd.append(ub);d.append(hd);
+const gr=el("div",null,"g");const pin={},ofc={};
+(O.bottles||[]).forEach(b=>{const w=el("label",b.name+" narxi");const i=inp("number",x.prices&&x.prices[b.ml]||"","100%");pin[b.ml]=i;const c=inp("checkbox","");c.style.width="auto";c.checked=!(x.off||[]).includes(b.ml);ofc[b.ml]=c;const cl=el("label"," mavjud");cl.prepend(c);w.append(i,cl);gr.append(w)});d.append(gr);
+const w1=el("label","Yoki 1 ml narxi (hamma hajm uchun, ixtiyoriy) ");const a=inp("number",x.ppm||"","130px");w1.append(a);d.append(w1);
+const chk=(t,on)=>{const c=inp("checkbox","");c.style.width="auto";c.checked=!!on;const l=el("label"," "+t+"  ");l.prepend(c);d.append(l);return c};
+const st=chk("Sotuvda bor",x.stock!==false),rc=chk("Tavsiya",x.rec),gf=chk("Sovg‘a (omad g‘ildiragi)",x.gift),oi=chk("Yog‘li atr (masla bilan)",x.oil);
+const op=inp("number",x.oilPpm||"","130px");op.placeholder="1 ml masla narxi";d.append(op);
+d.append(el("div","Kategoriya: "));const tg=(O.categories||[]).filter(c=>c.tag&&c.tag!=="oil").map(c=>[c.tag,chk(c.name,(x.tags||[]).includes(c.tag))]);
+const nt=document.createElement("textarea");nt.value=x.notes||"";nt.rows=2;nt.style.cssText="width:100%;margin-top:6px";nt.placeholder="Izoh: Yuqori: ...; O‘rta: ...; Asos: ...";d.append(nt);
+const sv=el("button","Saqlash"),m=el("span","");
+sv.onclick=async()=>{const prices={},off=[];(O.bottles||[]).forEach(b=>{if(pin[b.ml].value)prices[b.ml]=pin[b.ml].value;if(!ofc[b.ml].checked)off.push(b.ml)});
+const r=await post("/api/admin/product",{id:x.id,ppm:a.value,prices:prices,off:off,stock:st.checked,rec:rc.checked,gift:gf.checked,oil:oi.checked,oilPpm:op.value,tags:tg.filter(t=>t[1].checked).map(t=>t[0]),notes:nt.value});m.textContent=r.error?r.error:" Saqlandi ✓";if(!r.error)Object.assign(x,r)};
+d.append(sv,m);box.append(d)})};q.oninput=draw;draw()}
+async function brands(){const P=await fetch("/api/products").then(r=>r.json()),O=await fetch("/api/options").then(r=>r.json());L.textContent="";
+L.append(el("p","Brend rasmi bosh sahifadagi doirachada va katalogda ko‘rinadi. Rasm yuklamasangiz, brend bosh harflari bilan vaqtinchalik belgi chiqadi."));
+[...new Set(P.map(x=>x.brand).filter(Boolean))].sort().forEach(n=>{const d=el("div",null,"o"),t=thumb((O.brandImages||{})[n]);d.append(t,el("b",n));
+const b=el("button","Rasm yuklash");b.onclick=()=>pick(async u=>{const r=await post("/api/admin/upload",{kind:"brand",name:n,data:u});if(r.img)t.src=r.img;else alert(r.error)});d.append(b);L.append(d)})}
+async function bulk(){const P=await fetch("/api/products").then(r=>r.json());L.textContent="";
+L.append(el("p","Ko‘p rasmni bir vaqtda tanlang. Fayl nomi atir yoki brend nomiga o‘xshash bo‘lsin (masalan: dior-sauvage.jpg yoki chanel.jpg). Tizim moslashtiradi, siz tekshirib tasdiqlaysiz. Moslanmagan rasmlarni qo‘lda tanlang."));
+const slug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),brs=[...new Set(P.map(x=>x.brand).filter(Boolean))].sort();
+const f=document.createElement("input");f.type="file";f.accept="image/*";f.multiple=true;L.append(f);const box=el("div");L.append(box);let rows=[];
+f.onchange=()=>{box.textContent="";rows=[];[...f.files].forEach(file=>{const base=slug(file.name.replace(/\.[^.]+$/,"")),d=el("div",null,"o");let best="";
+ P.forEach(x=>{if(slug((x.brand||"")+" "+x.name)===base||slug(x.name)===base)best="p:"+x.id});
+ if(!best)brs.forEach(b=>{if(slug(b)===base)best="b:"+b});
+ if(!best){let bs=0;P.forEach(x=>{const n=slug(x.name),fu=slug((x.brand||"")+" "+x.name);const sc=base.length>=4&&(fu.includes(base)||base.includes(n)&&n.length>=4)?base.length:0;if(sc>bs){bs=sc;best="p:"+x.id}})}
+ const sel=el("select");const o0=el("option","— o‘tkazib yuborish —");o0.value="";sel.append(o0);
+ brs.forEach(b=>{const o=el("option","Brend: "+b);o.value="b:"+b;sel.append(o)});P.forEach(x=>{const o=el("option",(x.brand?x.brand+" — ":"")+x.name);o.value="p:"+x.id;sel.append(o)});sel.value=best;
+ const th=thumb(URL.createObjectURL(file));d.append(th,el("b",file.name+"  →  "),sel);box.append(d);rows.push({file,sel,d})});
+ if(rows.length){const go=el("button","Yuklash");const msg=el("span","");go.onclick=async()=>{let ok=0;for(const r of rows){const v=r.sel.value;if(!v)continue;const data=await shrink(r.file),b=v.startsWith("p:")?{kind:"product",id:+v.slice(2)}:{kind:"brand",name:v.slice(2)};const res=await post("/api/admin/upload",Object.assign(b,{data}));r.d.append(el("span",res.img?"  ✓":"  xato: "+res.error));if(res.img)ok++}msg.textContent=" Yuklandi: "+ok+" ta";};box.append(go,msg)}}}
+async function promos(){const P=await g("/api/admin/promos");L.textContent="";
+L.append(el("p","Promo kod kiritgan mijoz buyurtmasiga chegirma beriladi va bir marta omad g‘ildiragini aylantiradi. Yutgan sovg‘a atir buyurtma bilan tekin yuboriladi. Sovg‘a atirlarni «Atirlar» bo‘limida «Sovg‘a» belgisi bilan tanlaysiz, sovg‘a hajmi «Sozlamalar» da."));
+const f=el("div",null,"o");f.append(el("b","Promo kod qo‘shish / o‘zgartirish"));
+const c=inp("text","","160px"),pc=inp("number",20,"90px"),mu=inp("number",0,"90px"),ex=inp("date","","150px");c.placeholder="KOD";mu.title="0 = cheksiz";
+const ac=inp("checkbox","");ac.style.width="auto";ac.checked=true;const al=el("label"," faol");al.prepend(ac);
+const sv=el("button","Saqlash");sv.onclick=async()=>{const r=await post("/api/admin/promo",{code:c.value,percent:pc.value,maxUses:mu.value,expires:ex.value,active:ac.checked});if(r.error)alert(r.error);else promos()};
+f.append(c,el("span"," chegirma %:"),pc,el("span"," limit (0=cheksiz):"),mu,el("span"," muddati:"),ex,al,sv);L.append(f);
+const t=el("table"),h=el("tr");["Kod","Chegirma","Ishlatilgan","Limit","Muddati","Holat",""].forEach(x=>h.append(el("th",x)));t.append(h);
+Object.keys(P).forEach(code=>{const p=P[code],r=el("tr");[code,p.percent+"%",p.uses||0,p.maxUses||"cheksiz",p.expires||"—",p.active?"faol":"o‘chiq"].forEach(x=>r.append(el("td",x)));
+const td=el("td"),tg=el("button",p.active?"O‘chirish":"Yoqish");tg.onclick=async()=>{await post("/api/admin/promo",Object.assign({code:code},p,{active:!p.active}));promos()};
+const rm=el("button","O‘chirib tashlash");rm.onclick=async()=>{if(confirm(code+" o‘chirilsinmi?")){await post("/api/admin/promo",{code:code,remove:true});promos()}};td.append(tg,rm);r.append(td);t.append(r)});L.append(t)}
+async function likes(){const a=await g("/api/admin/likes");L.textContent="";if(a.error){L.textContent=a.error;return}
+L.append(el("p","Mijozlar qaysi atirlarga layk (yurakcha) bosgan. Tizimga kirgan mijozlarning laykleri hisoblanadi."));
+if(!a.length)L.append(el("p","Hozircha layk yo‘q."));
+a.forEach(x=>{const d=el("div",null,"o");d.append(el("b",x.name+" — "+x.count+" ta layk"));d.append(el("div",x.users.map(u=>u.name+" (+"+u.phone+")").join(", ")));L.append(d)})}
+async function sett(){const O=await g("/api/admin/options");L.textContent="";if(O.error){L.textContent=O.error;return}
+const add=(lab,val,type)=>{const w=el("label",lab);w.style.cssText="display:block;margin-top:10px";const i=inp(type||"text",val);i.style.display="block";i.style.marginTop="4px";w.append(i);L.append(w);return i};
+L.append(el("h3","Do‘kon"));const shop=add("Do‘kon nomi",O.shop),ph=add("Telefon",O.phone);
+const lw=el("div");lw.style.marginTop="10px";const lt=thumb(O.logo);const lb=el("button","Logotip yuklash");lb.onclick=()=>pick(async u=>{const r=await post("/api/admin/upload",{kind:"logo",data:u});if(r.img)lt.src=r.img;else alert(r.error)});lw.append(lt,lb);L.append(lw);
+L.append(el("h3","Bosh sahifa"));const dm=add("Kartochkada ko‘rsatiladigan asosiy hajm (ml)",O.displayMl||10,"number"),fb=add("Mashhur brendlar (vergul bilan, tartib bilan)",(O.featuredBrands||[]).join(", "));
+L.append(el("h3","Promo va yog‘li atrlar"));const gm=add("Sovg‘a atir hajmi (ml)",(O.gift||{}).ml||3,"number"),om=add("Masla eng ko‘pi (idish hajmining necha %)",Math.round(((O.oil||{}).maxRatio||.7)*100),"number"),vp=add("Parfumerniy vada 1 ml narxi (so‘m, 0 = narxga qo‘shilmaydi)",(O.oil||{}).vadaPpm||0,"number");
+L.append(el("h3","To‘lov kartasi"));const cn=add("Karta raqami",O.card.number),co=add("Karta egasi (ism)",O.card.owner),cm=add("Mijozga izoh",O.card.note);
+L.append(el("h3","Yetkazib berish"));const dn=add("Izoh",O.delivery.note),fees={};O.delivery.types.forEach(t=>{fees[t.id]=add(t.name+": narxi (so‘m, 0 = bepul)",t.fee||0,"number")});
+L.append(el("h3","Idish qo‘shimcha narxi (so‘m)"));const bt={},vp2={};O.bottles.forEach(x=>{bt[x.id]=add(x.name,x.price||0,"number");(x.variants||[]).forEach(v=>{vp2[x.id+":"+v.id]=add("   "+x.name+" · "+v.name,v.price||0,"number")})});
+L.append(el("h3","Telegramga xabar (yangi buyurtma kelganda)"));const tt=add("Bot token (@BotFather dan)",(O.telegram||{}).token),tc=add("Chat ID",(O.telegram||{}).chat);
+L.append(el("h3","SMS (Eskiz.uz)"));const ee=add("Eskiz email",(O.eskiz||{}).email),ep=add("Eskiz parol",(O.eskiz||{}).password,"password");
+const s=el("button","Saqlash"),m=el("span","");s.style.marginTop="16px";
+s.onclick=async()=>{const b={shop:shop.value,phone:ph.value,displayMl:dm.value,featuredBrands:fb.value,giftMl:gm.value,oilMax:om.value,vadaPpm:vp.value,card:{number:cn.value,owner:co.value,note:cm.value},deliveryNote:dn.value,fees:{},bottles:{},vprices:{},telegram:{token:tt.value,chat:tc.value},eskiz:{email:ee.value,password:ep.value}};
+Object.keys(fees).forEach(i=>b.fees[i]=fees[i].value);Object.keys(bt).forEach(i=>b.bottles[i]=bt[i].value);Object.keys(vp2).forEach(i=>b.vprices[i]=vp2[i].value);
+const r=await post("/api/admin/options",b);m.textContent=r.error?r.error:" Saqlandi ✓";};L.append(s,m)}
+const TABS=[["Buyurtmalar",orders],["Mijozlar",users],["Atirlar",prods],["Rasmlar (ommaviy)",bulk],["Brendlar",brands],["Promo kodlar",promos],["Layklar",likes],["Sozlamalar",sett]],T=document.getElementById("tabs");
+TABS.forEach((t,n)=>{const b=el("button",t[0]);b.onclick=()=>{[...T.children].forEach(c=>c.className="");b.className="on";L.textContent="Yuklanmoqda...";t[1]()};T.append(b)});
+T.firstChild.className="on";orders();
+</script></body></html>
