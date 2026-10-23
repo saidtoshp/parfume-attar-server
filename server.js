@@ -1,6 +1,6 @@
 const http = require("http"), fs = require("fs"), path = require("path"), crypto = require("crypto");
 const PORT = +process.env.PORT || 3000;
-let ADMIN_KEY = process.env.ADMIN_KEY;
+let ADMIN_KEY = process.env.ADMIN_KEY || "admin123";
 const DEV = process.env.NODE_ENV !== "production"; // DEV rejimida SMS kodi ekranda ham ko‘rsatiladi
 const DIR = __dirname, PUB = path.join(DIR, "public"), DBF = path.join(DIR, "data", "db.json");
 
@@ -13,7 +13,7 @@ if (!process.env.ADMIN_KEY && !DEV) { // internetda: tasodifiy admin kaliti (dat
 let db = { users: {}, sessions: {}, codes: {}, orders: [], promos: {}, spins: {}, promoUses: {} };
 try { Object.assign(db, JSON.parse(fs.readFileSync(DBF, "utf8"))); } catch (e) {}
 function save() { const t = DBF + ".tmp"; fs.writeFileSync(t, JSON.stringify(db, null, 1)); fs.renameSync(t, DBF); }
-const options = () => JSON.parse(fs.readFileSync(path.join(DIR, "options.json"), "utf8"));
+const options = () => JSON.parse(fs.readFileSync(fs.existsSync(path.join(DIR, "options.json")) ? path.join(DIR, "options.json") : "/etc/secrets/options.json", "utf8"));
 function publicOptions() {
   const O = options(), pay = (O.payments || []).slice();
   if (O.payme && O.payme.merchant_id) pay.push({ id: "payme", name: "Payme" });
